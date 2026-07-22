@@ -273,20 +273,21 @@
   <div class="view" id="view-nodos">
     <div class="grid g2">
       <div class="panel">
-        <h2>Nodos</h2>
+        <h2 id="nodoFormTitle">Nodos</h2>
         <p class="sub">Ubicaciones físicas de tu red (caseta, torre, poste principal)</p>
         <div class="grid g2" style="margin-bottom:10px;">
           <div class="field"><label>Nombre del nodo</label><input id="f-nodoNombre" placeholder="ej. Nodo Central"></div>
           <div class="field"><label>Zona</label><input id="f-nodoZona" placeholder="ej. El Progreso Sur"></div>
         </div>
         <button class="btn small" id="addNodoBtn">+ Agregar nodo</button>
+        <button class="btn secondary small" id="cancelNodoBtn" style="display:none;">Cancelar edición</button>
         <table style="margin-top:14px;">
           <thead><tr><th>Nombre</th><th>Zona</th><th></th></tr></thead>
           <tbody id="tbl-nodos"></tbody>
         </table>
       </div>
       <div class="panel">
-        <h2>ODFs</h2>
+        <h2 id="odfFormTitle">ODFs</h2>
         <p class="sub">Distribuidores ópticos por nodo, con su cantidad de puertos</p>
         <div class="grid g3" style="margin-bottom:10px;">
           <div class="field"><label>Nodo</label><select id="f-odfNodo"></select></div>
@@ -294,6 +295,7 @@
           <div class="field"><label># Puertos</label><input id="f-odfPuertos" placeholder="ej. 24"></div>
         </div>
         <button class="btn small" id="addOdfBtn">+ Agregar ODF</button>
+        <button class="btn secondary small" id="cancelOdfBtn" style="display:none;">Cancelar edición</button>
         <table style="margin-top:14px;">
           <thead><tr><th>ODF</th><th>Nodo</th><th>Puertos</th><th>Usados</th><th></th></tr></thead>
           <tbody id="tbl-odfs"></tbody>
@@ -317,13 +319,45 @@
       </div>
       <button class="btn small" id="addCierreMainBtn">+ Agregar cierre</button>
       <table style="margin-top:14px;">
-        <thead><tr><th>Nombre</th><th>Ubicación</th><th>Tipo</th><th>Capacidad</th><th>Hilos que pasan</th><th></th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Ubicación</th><th>Tipo</th><th>Capacidad</th><th>Hilos que pasan</th><th>Empalmes documentados</th><th></th></tr></thead>
         <tbody id="tbl-cierres"></tbody>
       </table>
     </div>
   </div>
 
 </main>
+
+<!-- MODAL FUSIONES -->
+<div class="modal-bg" id="fusionModalBg">
+  <div class="modal">
+    <h3 id="fusionModalTitle">Empalmes del cierre</h3>
+    <p class="sub" style="margin-top:-10px;">Registra cada par de hilos que se fusionan dentro de este cierre — así documentas cuántas fibras entran y con cuáles quedan unidas.</p>
+    <div class="grid g3" style="margin-bottom:10px;">
+      <div class="field"><label>Cable de entrada</label><input id="fu-cableEntrada" placeholder="ej. Troncal Norte 24H"></div>
+      <div class="field"><label>Color hilo entrada</label><select id="fu-colorEntrada"></select></div>
+      <div class="field"><label>Buffer entrada</label><input id="fu-bufferEntrada" placeholder="ej. 2"></div>
+    </div>
+    <div class="grid g3" style="margin-bottom:10px;">
+      <div class="field"><label>Cable de salida</label><input id="fu-cableSalida" placeholder="ej. Distribución NAP-04"></div>
+      <div class="field"><label>Color hilo salida</label><select id="fu-colorSalida"></select></div>
+      <div class="field"><label>Buffer salida</label><input id="fu-bufferSalida" placeholder="ej. 1"></div>
+    </div>
+    <div class="grid g3" style="margin-bottom:14px;">
+      <div class="field"><label>Bandeja / posición</label><input id="fu-bandeja" placeholder="ej. Bandeja 2, pos. 5"></div>
+      <div class="field"><label>Atenuación (dB)</label><input id="fu-atenuacion" placeholder="ej. 0.05"></div>
+      <div class="field"><label>Notas</label><input id="fu-notas" placeholder="opcional"></div>
+    </div>
+    <button class="btn" id="addFusionBtn">+ Agregar empalme</button>
+    <table style="margin-top:16px;">
+      <thead><tr><th>Entrada</th><th>Salida</th><th>Bandeja</th><th>Atenuación</th><th></th></tr></thead>
+      <tbody id="tbl-fusiones"></tbody>
+    </table>
+    <div class="empty" id="fusionesEmpty" style="display:none;padding:20px 0;">Sin empalmes registrados en este cierre todavía.</div>
+    <div class="modal-actions">
+      <button class="btn secondary" id="closeFusionModal">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -339,7 +373,7 @@
       habilita "Anónimo" (así solo tu app puede escribir datos)
 ===================================================================== */
 const firebaseConfig = {
-  apiKey: "AIzaSyBeGSUXgnY557ICzHGZ2QKmOEqOtwitmPU",
+  apiKey: "AIzaSyBeGSUXgnY557lCzHGZ2QKmOEqOtwitmPU",
   authDomain: "fiber-inventory-abb70.firebaseapp.com",
   projectId: "fiber-inventory-abb70",
   storageBucket: "fiber-inventory-abb70.firebasestorage.app",
@@ -364,7 +398,7 @@ const COLORS = [
 ];
 const ESTADOS = {activo:'Activo',reservado:'Reservado',danado:'Dañado',libre:'Libre'};
 
-let state = { nodos:[], odfs:[], cierres:[], hilos:[] };
+let state = { nodos:[], odfs:[], cierres:[], hilos:[], empalmes:[] };
 let editingId = null;
 let selectedColor = COLORS[0].k;
 let routeBuild = [];
@@ -396,7 +430,7 @@ async function loadAll(){
     renderAll();
     return;
   }
-  for(const key of ['nodos','odfs','cierres','hilos']){
+  for(const key of ['nodos','odfs','cierres','hilos','empalmes']){
     try{
       const doc = await db.collection('inventario').doc(key).get();
       state[key] = doc.exists ? (doc.data().items || []) : [];
@@ -404,7 +438,7 @@ async function loadAll(){
   }
   renderAll();
   // escucha cambios en tiempo real desde otros dispositivos
-  ['nodos','odfs','cierres','hilos'].forEach(key=>{
+  ['nodos','odfs','cierres','hilos','empalmes'].forEach(key=>{
     db.collection('inventario').doc(key).onSnapshot(doc=>{
       if(doc.exists){ state[key] = doc.data().items || []; renderAll(); }
     });
@@ -420,6 +454,7 @@ async function save(key){
   }catch(e){ toast('Error guardando datos'); console.error(e); }
 }
 
+let fusionSelectsReady = false;
 function renderAll(){
   renderColorPick();
   renderNodoSelects();
@@ -429,6 +464,7 @@ function renderAll(){
   renderCierres();
   renderHilos();
   renderDashboard();
+  if(!fusionSelectsReady){ populateFusionColorSelects(); fusionSelectsReady = true; }
 }
 
 /* ---------- COLOR PICKER ---------- */
@@ -469,11 +505,16 @@ function renderCierreSelects(){
 }
 
 /* ---------- NODOS ---------- */
+let editingNodoId = null;
+
 function renderNodos(){
   const tb = document.getElementById('tbl-nodos');
   tb.innerHTML = state.nodos.map(n=>`
     <tr><td>${esc(n.nombre)}</td><td>${esc(n.zona||'—')}</td>
-    <td><button class="btn danger small" data-del-nodo="${n.id}">Eliminar</button></td></tr>
+    <td><div class="row-actions">
+      <button class="btn secondary small" data-edit-nodo="${n.id}">Editar</button>
+      <button class="btn danger small" data-del-nodo="${n.id}">Eliminar</button>
+    </div></td></tr>
   `).join('') || '<tr><td colspan="3" style="color:var(--text-mute)">Sin nodos aún</td></tr>';
   tb.querySelectorAll('[data-del-nodo]').forEach(b=>{
     b.onclick=async()=>{
@@ -482,16 +523,44 @@ function renderNodos(){
       await save('nodos'); renderAll(); toast('Nodo eliminado');
     };
   });
+  tb.querySelectorAll('[data-edit-nodo]').forEach(b=>{
+    b.onclick=()=>loadNodoForEdit(b.dataset.editNodo);
+  });
+}
+
+function loadNodoForEdit(id){
+  const n = state.nodos.find(x=>x.id===id);
+  if(!n) return;
+  editingNodoId = id;
+  document.getElementById('nodoFormTitle').textContent = 'Editar nodo';
+  document.getElementById('f-nodoNombre').value = n.nombre||'';
+  document.getElementById('f-nodoZona').value = n.zona||'';
+  document.getElementById('addNodoBtn').textContent = 'Guardar cambios';
+  document.getElementById('cancelNodoBtn').style.display = 'inline-block';
+  document.getElementById('view-nodos').scrollIntoView({behavior:'smooth'});
+}
+function resetNodoForm(){
+  editingNodoId = null;
+  document.getElementById('nodoFormTitle').textContent = 'Nodos';
+  document.getElementById('f-nodoNombre').value = '';
+  document.getElementById('f-nodoZona').value = '';
+  document.getElementById('addNodoBtn').textContent = '+ Agregar nodo';
+  document.getElementById('cancelNodoBtn').style.display = 'none';
 }
 
 /* ---------- ODFS ---------- */
+let editingOdfId = null;
+
 function renderOdfs(){
   const tb = document.getElementById('tbl-odfs');
   tb.innerHTML = state.odfs.map(o=>{
     const nodo = state.nodos.find(n=>n.id===o.nodoId);
     const usados = state.hilos.filter(h=>h.odfId===o.id).length;
     return `<tr><td>${esc(o.nombre)}</td><td>${esc(nodo?nodo.nombre:'—')}</td><td>${o.puertos}</td><td>${usados}</td>
-    <td><button class="btn danger small" data-del-odf="${o.id}">Eliminar</button></td></tr>`;
+    <td><div class="row-actions">
+      <button class="btn secondary small" data-edit-odf="${o.id}">Editar</button>
+      <button class="btn danger small" data-del-odf="${o.id}">Eliminar</button>
+    </div></td></tr>`;
   }).join('') || '<tr><td colspan="5" style="color:var(--text-mute)">Sin ODFs aún</td></tr>';
   tb.querySelectorAll('[data-del-odf]').forEach(b=>{
     b.onclick=async()=>{
@@ -499,6 +568,30 @@ function renderOdfs(){
       await save('odfs'); renderAll(); toast('ODF eliminado');
     };
   });
+  tb.querySelectorAll('[data-edit-odf]').forEach(b=>{
+    b.onclick=()=>loadOdfForEdit(b.dataset.editOdf);
+  });
+}
+
+function loadOdfForEdit(id){
+  const o = state.odfs.find(x=>x.id===id);
+  if(!o) return;
+  editingOdfId = id;
+  document.getElementById('odfFormTitle').textContent = 'Editar ODF';
+  document.getElementById('f-odfNodo').value = o.nodoId;
+  document.getElementById('f-odfNombre').value = o.nombre||'';
+  document.getElementById('f-odfPuertos').value = o.puertos||'';
+  document.getElementById('addOdfBtn').textContent = 'Guardar cambios';
+  document.getElementById('cancelOdfBtn').style.display = 'inline-block';
+  document.getElementById('view-nodos').scrollIntoView({behavior:'smooth'});
+}
+function resetOdfForm(){
+  editingOdfId = null;
+  document.getElementById('odfFormTitle').textContent = 'ODFs';
+  document.getElementById('f-odfNombre').value = '';
+  document.getElementById('f-odfPuertos').value = '';
+  document.getElementById('addOdfBtn').textContent = '+ Agregar ODF';
+  document.getElementById('cancelOdfBtn').style.display = 'none';
 }
 
 /* ---------- CIERRES ---------- */
@@ -506,16 +599,98 @@ function renderCierres(){
   const tb = document.getElementById('tbl-cierres');
   tb.innerHTML = state.cierres.map(c=>{
     const pasan = state.hilos.filter(h=>(h.ruta||[]).includes(c.id)).length;
+    const nFusiones = state.empalmes.filter(f=>f.cierreId===c.id).length;
     return `<tr><td>${esc(c.nombre)}</td><td>${esc(c.ubicacion||'—')}</td><td>${esc(c.tipo||'—')}</td><td>${c.capacidad||'—'}</td><td>${pasan}</td>
+    <td><button class="btn secondary small" data-fusiones="${c.id}">${nFusiones? nFusiones+' registrados' : '+ Documentar'}</button></td>
     <td><button class="btn danger small" data-del-cierre="${c.id}">Eliminar</button></td></tr>`;
-  }).join('') || '<tr><td colspan="6" style="color:var(--text-mute)">Sin cierres aún</td></tr>';
+  }).join('') || '<tr><td colspan="7" style="color:var(--text-mute)">Sin cierres aún</td></tr>';
   tb.querySelectorAll('[data-del-cierre]').forEach(b=>{
     b.onclick=async()=>{
-      state.cierres = state.cierres.filter(c=>c.id!==b.dataset.delCierre);
-      await save('cierres'); renderAll(); toast('Cierre eliminado');
+      const id = b.dataset.delCierre;
+      state.cierres = state.cierres.filter(c=>c.id!==id);
+      state.empalmes = state.empalmes.filter(f=>f.cierreId!==id);
+      await save('cierres'); await save('empalmes'); renderAll(); toast('Cierre eliminado');
+    };
+  });
+  tb.querySelectorAll('[data-fusiones]').forEach(b=>{
+    b.onclick=()=>openFusionModal(b.dataset.fusiones);
+  });
+}
+
+/* ---------- FUSIONES (empalmes dentro de un cierre) ---------- */
+let currentFusionCierre = null;
+
+function populateFusionColorSelects(){
+  const opts = COLORS.map(c=>`<option value="${c.k}">${c.n}</option>`).join('');
+  document.getElementById('fu-colorEntrada').innerHTML = opts;
+  document.getElementById('fu-colorSalida').innerHTML = opts;
+}
+
+function openFusionModal(cierreId){
+  currentFusionCierre = cierreId;
+  const c = state.cierres.find(x=>x.id===cierreId);
+  document.getElementById('fusionModalTitle').textContent = 'Empalmes — ' + (c? c.nombre : '');
+  document.getElementById('fusionModalBg').classList.add('open');
+  renderFusiones();
+}
+function closeFusionModal(){
+  document.getElementById('fusionModalBg').classList.remove('open');
+  currentFusionCierre = null;
+}
+
+function renderFusiones(){
+  const list = state.empalmes.filter(f=>f.cierreId===currentFusionCierre);
+  const tb = document.getElementById('tbl-fusiones');
+  document.getElementById('fusionesEmpty').style.display = list.length? 'none':'block';
+  tb.innerHTML = list.map(f=>{
+    const cEnt = COLORS.find(c=>c.k===f.colorEntrada)||COLORS[0];
+    const cSal = COLORS.find(c=>c.k===f.colorSalida)||COLORS[0];
+    return `<tr>
+      <td><span class="swatch" style="background:${cEnt.h}"></span>${esc(f.cableEntrada||'—')} · ${cEnt.n}${f.bufferEntrada?(' buf.'+esc(f.bufferEntrada)):''}</td>
+      <td><span class="swatch" style="background:${cSal.h}"></span>${esc(f.cableSalida||'—')} · ${cSal.n}${f.bufferSalida?(' buf.'+esc(f.bufferSalida)):''}</td>
+      <td>${esc(f.bandeja||'—')}</td>
+      <td>${esc(f.atenuacion||'—')}</td>
+      <td><button class="btn danger small" data-del-fusion="${f.id}">Eliminar</button></td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('[data-del-fusion]').forEach(b=>{
+    b.onclick=async()=>{
+      state.empalmes = state.empalmes.filter(f=>f.id!==b.dataset.delFusion);
+      await save('empalmes'); renderFusiones(); renderCierres(); toast('Empalme eliminado');
     };
   });
 }
+
+document.getElementById('closeFusionModal').onclick = closeFusionModal;
+document.getElementById('fusionModalBg').addEventListener('click', (e)=>{
+  if(e.target.id === 'fusionModalBg') closeFusionModal();
+});
+
+document.getElementById('addFusionBtn').onclick = async ()=>{
+  if(!currentFusionCierre){ return; }
+  const cableEntrada = document.getElementById('fu-cableEntrada').value.trim();
+  const cableSalida = document.getElementById('fu-cableSalida').value.trim();
+  if(!cableEntrada || !cableSalida){ toast('Indica el cable de entrada y de salida'); return; }
+  const fusion = {
+    id: uid('fusion'),
+    cierreId: currentFusionCierre,
+    cableEntrada,
+    colorEntrada: document.getElementById('fu-colorEntrada').value,
+    bufferEntrada: document.getElementById('fu-bufferEntrada').value.trim(),
+    cableSalida,
+    colorSalida: document.getElementById('fu-colorSalida').value,
+    bufferSalida: document.getElementById('fu-bufferSalida').value.trim(),
+    bandeja: document.getElementById('fu-bandeja').value.trim(),
+    atenuacion: document.getElementById('fu-atenuacion').value.trim(),
+    notas: document.getElementById('fu-notas').value.trim(),
+    fecha: new Date().toISOString().slice(0,10)
+  };
+  state.empalmes.push(fusion);
+  await save('empalmes');
+  ['fu-cableEntrada','fu-bufferEntrada','fu-cableSalida','fu-bufferSalida','fu-bandeja','fu-atenuacion','fu-notas'].forEach(id=>document.getElementById(id).value='');
+  renderFusiones(); renderCierres();
+  toast('Empalme agregado');
+};
 
 /* ---------- ROUTE BUILDER ---------- */
 function renderRouteList(){
@@ -652,12 +827,21 @@ document.getElementById('addNodoBtn').onclick = async ()=>{
   const nombre = document.getElementById('f-nodoNombre').value.trim();
   const zona = document.getElementById('f-nodoZona').value.trim();
   if(!nombre){ toast('Escribe un nombre de nodo'); return; }
-  state.nodos.push({id:uid('nodo'), nombre, zona});
-  await save('nodos');
-  document.getElementById('f-nodoNombre').value='';
-  document.getElementById('f-nodoZona').value='';
-  renderAll(); toast('Nodo agregado');
+  if(editingNodoId){
+    const n = state.nodos.find(x=>x.id===editingNodoId);
+    if(n){ n.nombre = nombre; n.zona = zona; }
+    await save('nodos');
+    resetNodoForm();
+    renderAll(); toast('Nodo actualizado');
+  } else {
+    state.nodos.push({id:uid('nodo'), nombre, zona});
+    await save('nodos');
+    document.getElementById('f-nodoNombre').value='';
+    document.getElementById('f-nodoZona').value='';
+    renderAll(); toast('Nodo agregado');
+  }
 };
+document.getElementById('cancelNodoBtn').onclick = resetNodoForm;
 
 document.getElementById('addOdfBtn').onclick = async ()=>{
   const nodoId = document.getElementById('f-odfNodo').value;
@@ -665,12 +849,21 @@ document.getElementById('addOdfBtn').onclick = async ()=>{
   const puertos = parseInt(document.getElementById('f-odfPuertos').value)||0;
   if(!nodoId){ toast('Crea un nodo primero'); return; }
   if(!nombre){ toast('Escribe un nombre de ODF'); return; }
-  state.odfs.push({id:uid('odf'), nodoId, nombre, puertos});
-  await save('odfs');
-  document.getElementById('f-odfNombre').value='';
-  document.getElementById('f-odfPuertos').value='';
-  renderAll(); toast('ODF agregado');
+  if(editingOdfId){
+    const o = state.odfs.find(x=>x.id===editingOdfId);
+    if(o){ o.nodoId = nodoId; o.nombre = nombre; o.puertos = puertos; }
+    await save('odfs');
+    resetOdfForm();
+    renderAll(); toast('ODF actualizado');
+  } else {
+    state.odfs.push({id:uid('odf'), nodoId, nombre, puertos});
+    await save('odfs');
+    document.getElementById('f-odfNombre').value='';
+    document.getElementById('f-odfPuertos').value='';
+    renderAll(); toast('ODF agregado');
+  }
 };
+document.getElementById('cancelOdfBtn').onclick = resetOdfForm;
 
 document.getElementById('addCierreMainBtn').onclick = async ()=>{
   const nombre = document.getElementById('f-cierreNombre').value.trim();
