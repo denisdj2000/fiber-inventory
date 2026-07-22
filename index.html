@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Fiber Inventory</title>
+<style>
+  :root{
+    --bg:#0A1628;
+    --surface:#0F1E36;
+    --surface2:#152742;
+    --line:#22385A;
+    --cyan:#22D3C8;
+    --cyan-dim:#134F4B;
+    --amber:#F5C518;
+    --green:#3DD68C;
+    --red:#E5484D;
+    --grey:#7C8FA8;
+    --text:#E8EEF5;
+    --text-mute:#8CA0BC;
+    --mono:'IBM Plex Mono','SFMono-Regular',Consolas,monospace;
+    --sans:'Inter','Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(ellipse at top left,#0d1d33 0%,var(--bg) 55%);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  ::selection{background:var(--cyan-dim);}
+  header{
+    padding:22px 28px 18px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .mark{
+    width:38px;height:38px;border-radius:9px;
+    background:linear-gradient(135deg,var(--cyan),#0E7C74);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:700;color:#04201D;font-size:15px;
+    box-shadow:0 0 22px -4px var(--cyan);
+  }
+  .brand h1{font-size:16px;margin:0;letter-spacing:.3px;font-weight:600;}
+  .brand p{margin:1px 0 0;font-size:11.5px;color:var(--text-mute);font-family:var(--mono);letter-spacing:.5px;}
+  nav{display:flex;gap:4px;padding:14px 28px 0;border-bottom:1px solid var(--line);}
+  nav button{
+    background:none;border:none;color:var(--text-mute);
+    padding:10px 16px;font-size:13px;font-family:var(--sans);font-weight:500;
+    cursor:pointer;border-bottom:2px solid transparent;transition:.15s;
+  }
+  nav button:hover{color:var(--text);}
+  nav button.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+  main{padding:24px 28px;max-width:1320px;margin:0 auto;}
+  .view{display:none;}
+  .view.active{display:block;animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:16px 18px;position:relative;overflow:hidden;
+  }
+  .card .n{font-family:var(--mono);font-size:26px;font-weight:600;}
+  .card .l{font-size:11.5px;color:var(--text-mute);margin-top:2px;text-transform:uppercase;letter-spacing:.6px;}
+  .card.activo .n{color:var(--green);}
+  .card.reservado .n{color:var(--amber);}
+  .card.danado .n{color:var(--red);}
+  .card.libre .n{color:var(--grey);}
+  .card.total .n{color:var(--cyan);}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px;}
+  .panel h2{margin:0 0 4px;font-size:14px;letter-spacing:.3px;}
+  .panel .sub{font-size:12px;color:var(--text-mute);margin:0 0 16px;}
+
+  .grid{display:grid;gap:12px;}
+  .grid.g2{grid-template-columns:1fr 1fr;}
+  .grid.g3{grid-template-columns:1fr 1fr 1fr;}
+  .grid.g4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  @media(max-width:820px){.grid.g2,.grid.g3,.grid.g4{grid-template-columns:1fr;}}
+
+  label{display:block;font-size:11px;color:var(--text-mute);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
+  input,select,textarea{
+    width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    padding:9px 10px;border-radius:7px;font-size:13.5px;font-family:var(--sans);
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--cyan);}
+  textarea{resize:vertical;min-height:50px;}
+  .field{margin-bottom:0;}
+
+  .btn{
+    background:var(--cyan);color:#04201D;border:none;padding:10px 18px;border-radius:7px;
+    font-weight:600;font-size:13px;cursor:pointer;transition:.15s;
+  }
+  .btn:hover{filter:brightness(1.1);}
+  .btn.secondary{background:transparent;border:1px solid var(--line);color:var(--text);}
+  .btn.secondary:hover{border-color:var(--cyan);color:var(--cyan);}
+  .btn.danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+  .btn.danger:hover{background:var(--red);color:#fff;}
+  .btn.small{padding:5px 10px;font-size:11.5px;}
+  .row-actions{display:flex;gap:6px;}
+
+  table{width:100%;border-collapse:collapse;font-size:12.8px;}
+  th{
+    text-align:left;padding:9px 10px;color:var(--text-mute);font-weight:500;
+    text-transform:uppercase;font-size:10.5px;letter-spacing:.5px;border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tr:hover td{background:rgba(34,211,200,0.03);}
+  .idcell{font-family:var(--mono);color:var(--text-mute);}
+
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;border:1px solid rgba(255,255,255,.25);}
+  .color-pick{display:flex;flex-wrap:wrap;gap:6px;}
+  .color-opt{
+    display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:16px;
+    background:var(--surface2);border:1px solid var(--line);cursor:pointer;font-size:11.5px;
+  }
+  .color-opt.sel{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset;}
+
+  .badge{padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;display:inline-block;}
+  .badge.activo{background:rgba(61,214,140,.12);color:var(--green);}
+  .badge.reservado{background:rgba(245,197,24,.12);color:var(--amber);}
+  .badge.danado{background:rgba(229,72,77,.12);color:var(--red);}
+  .badge.libre{background:rgba(124,143,168,.12);color:var(--grey);}
+
+  .trace{display:flex;align-items:center;gap:3px;font-family:var(--mono);font-size:11px;color:var(--text-mute);}
+  .trace .dot{width:6px;height:6px;border-radius:50%;background:var(--text-mute);flex-shrink:0;}
+  .trace .seg{width:16px;height:2px;flex-shrink:0;}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;}
+  .toolbar .field{min-width:150px;}
+  .empty{padding:40px 20px;text-align:center;color:var(--text-mute);font-size:13px;}
+  .empty b{color:var(--text);}
+
+  .route-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .route-chip{
+    display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--line);
+    padding:5px 6px 5px 10px;border-radius:16px;font-size:12px;
+  }
+  .route-chip button{background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;}
+  .route-chip button:hover{color:var(--red);}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(4,9,18,.65);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50;}
+  .modal-bg.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;max-width:680px;width:100%;}
+  .modal h3{margin:0 0 16px;font-size:15px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--surface2);border:1px solid var(--cyan);color:var(--text);
+    padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;
+    z-index:99;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-6px);}
+
+  .legend{font-family:var(--mono);}
+  .helptext{font-size:11.5px;color:var(--text-mute);margin-top:6px;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="mark">DB</div>
+    <div>
+      <h1>Inventario de Hilos de Fibra</h1>
+      <p>DENIS BARDALES</p>
+    </div>
+  </div>
+  <div class="row-actions">
+    <button class="btn secondary" id="importBtn">Importar CSV</button>
+    <input type="file" id="importFile" accept=".csv" style="display:none;">
+    <button class="btn secondary" id="exportBtn">Exportar CSV</button>
+  </div>
+</header>
+
+<nav>
+  <button data-view="dashboard" class="active">Resumen</button>
+  <button data-view="hilos">Hilos</button>
+  <button data-view="nodos">Nodos &amp; ODF</button>
+  <button data-view="cierres">Cierres</button>
+</nav>
+
+<main>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="cards">
+      <div class="card total"><div class="n" id="c-total">0</div><div class="l">Hilos registrados</div></div>
+      <div class="card activo"><div class="n" id="c-activo">0</div><div class="l">Activos</div></div>
+      <div class="card reservado"><div class="n" id="c-reservado">0</div><div class="l">Reservados</div></div>
+      <div class="card danado"><div class="n" id="c-danado">0</div><div class="l">Dañados</div></div>
+      <div class="card libre"><div class="n" id="c-libre">0</div><div class="l">Libres</div></div>
+    </div>
+    <div class="panel">
+      <h2>Por nodo</h2>
+      <p class="sub">Distribución de hilos registrados por nodo</p>
+      <table id="tbl-porNodo"><thead><tr><th>Nodo</th><th>Total</th><th>Activos</th><th>Reservados</th><th>Dañados</th><th>Libres</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- HILOS -->
+  <div class="view" id="view-hilos">
+    <div class="panel">
+      <h2 id="formHiloTitle">Registrar hilo</h2>
+      <p class="sub">Ruta completa: ODF → puerto → cierres de empalme → destino</p>
+      <div class="grid g4" style="margin-bottom:12px;">
+        <div class="field"><label>Nodo</label><select id="f-nodo"></select></div>
+        <div class="field"><label>ODF</label><select id="f-odf"></select></div>
+        <div class="field"><label>Puerto ODF</label><input id="f-puerto" placeholder="ej. 3"></div>
+        <div class="field"><label>Buffer (1-12)</label><input id="f-buffer" placeholder="ej. 2"></div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Color de hilo (código TIA/EIA-598)</label>
+        <div class="color-pick" id="colorPick"></div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Ruta — cierres de empalme (en orden)</label>
+        <div class="grid g2" style="align-items:end;">
+          <select id="f-cierreAdd"></select>
+          <button class="btn secondary" id="addCierreBtn" type="button">+ Añadir cierre a la ruta</button>
+        </div>
+        <div class="route-list" id="routeList"></div>
+      </div>
+      <div class="grid g3" style="margin-bottom:12px;">
+        <div class="field"><label>Destino final</label><input id="f-destino" placeholder="ej. NAP-04 / Domicilio cliente"></div>
+        <div class="field"><label>Cliente asignado</label><input id="f-cliente" placeholder="Nombre del cliente (opcional)"></div>
+        <div class="field"><label>Estado</label>
+          <select id="f-estado">
+            <option value="libre">Libre</option>
+            <option value="activo">Activo</option>
+            <option value="reservado">Reservado</option>
+            <option value="danado">Dañado</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid g4" style="margin-bottom:14px;">
+        <div class="field"><label>Potencia Tx (dBm)</label><input id="f-tx" placeholder="ej. -3.2"></div>
+        <div class="field"><label>Potencia Rx (dBm)</label><input id="f-rx" placeholder="ej. -19.8"></div>
+        <div class="field"><label>Fecha instalación</label><input id="f-fecha" type="date"></div>
+        <div class="field"><label>Notas</label><input id="f-notas" placeholder="opcional"></div>
+      </div>
+      <button class="btn" id="saveHiloBtn">Guardar hilo</button>
+      <button class="btn secondary" id="cancelEditBtn" style="display:none;">Cancelar edición</button>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <div class="field"><label>Buscar cliente / destino</label><input id="filtroTexto" placeholder="Buscar…"></div>
+        <div class="field"><label>Nodo</label><select id="filtroNodo"><option value="">Todos</option></select></div>
+        <div class="field"><label>Estado</label><select id="filtroEstado"><option value="">Todos</option><option value="activo">Activo</option><option value="reservado">Reservado</option><option value="danado">Dañado</option><option value="libre">Libre</option></select></div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Nodo/ODF</th><th>Color</th><th>Ruta</th><th>Destino</th><th>Cliente</th><th>Estado</th><th>Tx/Rx</th><th></th></tr></thead>
+        <tbody id="tbl-hilos"></tbody>
+      </table>
+      <div class="empty" id="hilosEmpty" style="display:none;">Aún no hay hilos registrados. <b>Usa el formulario de arriba para agregar el primero.</b></div>
+    </div>
+  </div>
+
+  <!-- NODOS / ODF -->
+  <div class="view" id="view-nodos">
+    <div class="grid g2">
+      <div class="panel">
+        <h2>Nodos</h2>
+        <p class="sub">Ubicaciones físicas de tu red (caseta, torre, poste principal)</p>
+        <div class="grid g2" style="margin-bottom:10px;">
+          <div class="field"><label>Nombre del nodo</label><input id="f-nodoNombre" placeholder="ej. Nodo Central"></div>
+          <div class="field"><label>Zona</label><input id="f-nodoZona" placeholder="ej. El Progreso Sur"></div>
+        </div>
+        <button class="btn small" id="addNodoBtn">+ Agregar nodo</button>
+        <table style="margin-top:14px;">
+          <thead><tr><th>Nombre</th><th>Zona</th><th></th></tr></thead>
+          <tbody id="tbl-nodos"></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h2>ODFs</h2>
+        <p class="sub">Distribuidores ópticos por nodo, con su cantidad de puertos</p>
+        <div class="grid g3" style="margin-bottom:10px;">
+          <div class="field"><label>Nodo</label><select id="f-odfNodo"></select></div>
+          <div class="field"><label>Nombre ODF</label><input id="f-odfNombre" placeholder="ej. ODF-1"></div>
+          <div class="field"><label># Puertos</label><input id="f-odfPuertos" placeholder="ej. 24"></div>
+        </div>
+        <button class="btn small" id="addOdfBtn">+ Agregar ODF</button>
+        <table style="margin-top:14px;">
+          <thead><tr><th>ODF</th><th>Nodo</th><th>Puertos</th><th>Usados</th><th></th></tr></thead>
+          <tbody id="tbl-odfs"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CIERRES -->
+  <div class="view" id="view-cierres">
+    <div class="panel">
+      <h2>Cierres de empalme</h2>
+      <p class="sub">Puntos donde se fusionan / unen los hilos (cajas NAP, cierres de empalme troncal)</p>
+      <div class="grid g4" style="margin-bottom:10px;">
+        <div class="field"><label>Nombre</label><input id="f-cierreNombre" placeholder="ej. Cierre KM-3"></div>
+        <div class="field"><label>Ubicación</label><input id="f-cierreUbic" placeholder="ej. Poste 14, Barrio X"></div>
+        <div class="field"><label>Capacidad (hilos)</label><input id="f-cierreCap" placeholder="ej. 24"></div>
+        <div class="field"><label>Tipo</label>
+          <select id="f-cierreTipo"><option>Troncal</option><option>Distribución</option><option>NAP</option></select>
+        </div>
+      </div>
+      <button class="btn small" id="addCierreMainBtn">+ Agregar cierre</button>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Nombre</th><th>Ubicación</th><th>Tipo</th><th>Capacidad</th><th>Hilos que pasan</th><th></th></tr></thead>
+        <tbody id="tbl-cierres"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+/* =====================================================================
+   CONFIGURACIÓN DE FIREBASE — REEMPLAZA ESTOS VALORES
+   1. Ve a https://console.firebase.google.com → crea un proyecto (gratis)
+   2. Dentro del proyecto: ⚙️ Configuración del proyecto → Tus apps → Web (</>) → registra la app
+   3. Copia el objeto "firebaseConfig" que te muestra Firebase y pégalo abajo
+   4. En el menú lateral: Compilación → Firestore Database → Crear base de datos
+      (elige modo "producción" y luego pega las reglas que te doy en el README)
+   5. En el menú lateral: Compilación → Authentication → Sign-in method →
+      habilita "Anónimo" (así solo tu app puede escribir datos)
+===================================================================== */
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI_TU_API_KEY",
+  authDomain: "PEGA_AQUI.firebaseapp.com",
+  projectId: "PEGA_AQUI_TU_PROJECT_ID",
+  storageBucket: "PEGA_AQUI.appspot.com",
+  messagingSenderId: "PEGA_AQUI",
+  appId: "PEGA_AQUI"
+};
+let db = null;
+let firebaseReady = false;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+}catch(e){ console.error('Firebase no configurado todavía', e); }
+
+const COLORS = [
+  {k:'azul',n:'Azul',h:'#0072CE'},{k:'naranja',n:'Naranja',h:'#FF6A00'},
+  {k:'verde',n:'Verde',h:'#00A651'},{k:'marron',n:'Marrón',h:'#6F4E37'},
+  {k:'gris',n:'Gris',h:'#A9A9A9'},{k:'blanco',n:'Blanco',h:'#F5F5F5'},
+  {k:'rojo',n:'Rojo',h:'#E30613'},{k:'negro',n:'Negro',h:'#1A1A1A'},
+  {k:'amarillo',n:'Amarillo',h:'#FFD700'},{k:'violeta',n:'Violeta',h:'#7B2D8E'},
+  {k:'rosado',n:'Rosado',h:'#FF69B4'},{k:'aqua',n:'Aqua',h:'#00CED1'}
+];
+const ESTADOS = {activo:'Activo',reservado:'Reservado',danado:'Dañado',libre:'Libre'};
+
+let state = { nodos:[], odfs:[], cierres:[], hilos:[] };
+let editingId = null;
+let selectedColor = COLORS[0].k;
+let routeBuild = [];
+
+function uid(p){ return p+'_'+Math.random().toString(36).slice(2,9); }
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+async function ensureAuth(){
+  if(!db) return false;
+  return new Promise(resolve=>{
+    firebase.auth().onAuthStateChanged(user=>{
+      if(user){ firebaseReady = true; resolve(true); }
+    });
+    firebase.auth().signInAnonymously().catch(err=>{
+      console.error('Error de autenticación', err);
+      toast('No se pudo conectar a la base de datos. Revisa la configuración de Firebase.');
+      resolve(false);
+    });
+  });
+}
+
+async function loadAll(){
+  const ok = await ensureAuth();
+  if(!ok || !db){
+    toast('Firebase no está configurado — los datos no se guardarán. Revisa el README.');
+    renderAll();
+    return;
+  }
+  for(const key of ['nodos','odfs','cierres','hilos']){
+    try{
+      const doc = await db.collection('inventario').doc(key).get();
+      state[key] = doc.exists ? (doc.data().items || []) : [];
+    }catch(e){ console.error(e); state[key] = []; }
+  }
+  renderAll();
+  // escucha cambios en tiempo real desde otros dispositivos
+  ['nodos','odfs','cierres','hilos'].forEach(key=>{
+    db.collection('inventario').doc(key).onSnapshot(doc=>{
+      if(doc.exists){ state[key] = doc.data().items || []; renderAll(); }
+    });
+  });
+}
+async function save(key){
+  if(!db || !firebaseReady){ toast('Firebase no está configurado — revisa el README.'); return; }
+  try{
+    await db.collection('inventario').doc(key).set({
+      items: state[key],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ toast('Error guardando datos'); console.error(e); }
+}
+
+function renderAll(){
+  renderColorPick();
+  renderNodoSelects();
+  renderCierreSelects();
+  renderNodos();
+  renderOdfs();
+  renderCierres();
+  renderHilos();
+  renderDashboard();
+}
+
+/* ---------- COLOR PICKER ---------- */
+function renderColorPick(){
+  const el = document.getElementById('colorPick');
+  el.innerHTML = COLORS.map(c=>`
+    <div class="color-opt ${c.k===selectedColor?'sel':''}" data-k="${c.k}">
+      <span class="swatch" style="background:${c.h}"></span>${c.n}
+    </div>`).join('');
+  el.querySelectorAll('.color-opt').forEach(o=>{
+    o.onclick=()=>{ selectedColor=o.dataset.k; renderColorPick(); };
+  });
+}
+
+/* ---------- SELECTS ---------- */
+function renderNodoSelects(){
+  const opts = state.nodos.map(n=>`<option value="${n.id}">${esc(n.nombre)}</option>`).join('');
+  ['f-nodo','f-odfNodo'].forEach(id=>{
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = opts || '<option value="">— crea un nodo primero —</option>';
+    if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  });
+  const filtroNodo = document.getElementById('filtroNodo');
+  filtroNodo.innerHTML = '<option value="">Todos</option>' + opts;
+  renderOdfSelect();
+}
+function renderOdfSelect(){
+  const nodoId = document.getElementById('f-nodo').value;
+  const odfs = state.odfs.filter(o=>o.nodoId===nodoId);
+  const sel = document.getElementById('f-odf');
+  sel.innerHTML = odfs.map(o=>`<option value="${o.id}">${esc(o.nombre)} (${o.puertos} puertos)</option>`).join('') || '<option value="">— sin ODF en este nodo —</option>';
+}
+function renderCierreSelects(){
+  const opts = state.cierres.map(c=>`<option value="${c.id}">${esc(c.nombre)}</option>`).join('');
+  const sel = document.getElementById('f-cierreAdd');
+  sel.innerHTML = opts || '<option value="">— crea un cierre primero —</option>';
+}
+
+/* ---------- NODOS ---------- */
+function renderNodos(){
+  const tb = document.getElementById('tbl-nodos');
+  tb.innerHTML = state.nodos.map(n=>`
+    <tr><td>${esc(n.nombre)}</td><td>${esc(n.zona||'—')}</td>
+    <td><button class="btn danger small" data-del-nodo="${n.id}">Eliminar</button></td></tr>
+  `).join('') || '<tr><td colspan="3" style="color:var(--text-mute)">Sin nodos aún</td></tr>';
+  tb.querySelectorAll('[data-del-nodo]').forEach(b=>{
+    b.onclick=async()=>{
+      const id=b.dataset.delNodo;
+      state.nodos = state.nodos.filter(n=>n.id!==id);
+      await save('nodos'); renderAll(); toast('Nodo eliminado');
+    };
+  });
+}
+
+/* ---------- ODFS ---------- */
+function renderOdfs(){
+  const tb = document.getElementById('tbl-odfs');
+  tb.innerHTML = state.odfs.map(o=>{
+    const nodo = state.nodos.find(n=>n.id===o.nodoId);
+    const usados = state.hilos.filter(h=>h.odfId===o.id).length;
+    return `<tr><td>${esc(o.nombre)}</td><td>${esc(nodo?nodo.nombre:'—')}</td><td>${o.puertos}</td><td>${usados}</td>
+    <td><button class="btn danger small" data-del-odf="${o.id}">Eliminar</button></td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:var(--text-mute)">Sin ODFs aún</td></tr>';
+  tb.querySelectorAll('[data-del-odf]').forEach(b=>{
+    b.onclick=async()=>{
+      state.odfs = state.odfs.filter(o=>o.id!==b.dataset.delOdf);
+      await save('odfs'); renderAll(); toast('ODF eliminado');
+    };
+  });
+}
+
+/* ---------- CIERRES ---------- */
+function renderCierres(){
+  const tb = document.getElementById('tbl-cierres');
+  tb.innerHTML = state.cierres.map(c=>{
+    const pasan = state.hilos.filter(h=>(h.ruta||[]).includes(c.id)).length;
+    return `<tr><td>${esc(c.nombre)}</td><td>${esc(c.ubicacion||'—')}</td><td>${esc(c.tipo||'—')}</td><td>${c.capacidad||'—'}</td><td>${pasan}</td>
+    <td><button class="btn danger small" data-del-cierre="${c.id}">Eliminar</button></td></tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:var(--text-mute)">Sin cierres aún</td></tr>';
+  tb.querySelectorAll('[data-del-cierre]').forEach(b=>{
+    b.onclick=async()=>{
+      state.cierres = state.cierres.filter(c=>c.id!==b.dataset.delCierre);
+      await save('cierres'); renderAll(); toast('Cierre eliminado');
+    };
+  });
+}
+
+/* ---------- ROUTE BUILDER ---------- */
+function renderRouteList(){
+  const el = document.getElementById('routeList');
+  el.innerHTML = routeBuild.map((cid,idx)=>{
+    const c = state.cierres.find(x=>x.id===cid);
+    return `<div class="route-chip">${idx+1}. ${esc(c?c.nombre:'?')}<button data-i="${idx}">×</button></div>`;
+  }).join('');
+  el.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ routeBuild.splice(+b.dataset.i,1); renderRouteList(); };
+  });
+}
+
+/* ---------- HILOS ---------- */
+function traceHtml(hilo){
+  const colorObj = COLORS.find(c=>c.k===hilo.color) || COLORS[0];
+  let html = `<div class="trace"><span class="dot" style="background:${colorObj.h}"></span>ODF`;
+  (hilo.ruta||[]).forEach(cid=>{
+    const c = state.cierres.find(x=>x.id===cid);
+    html += `<span class="seg" style="background:${colorObj.h}"></span><span class="dot" style="background:${colorObj.h}"></span>${esc(c?c.nombre:'?')}`;
+  });
+  html += `<span class="seg" style="background:${colorObj.h}"></span><span class="dot" style="background:${colorObj.h}"></span>${esc(hilo.destino||'destino')}</div>`;
+  return html;
+}
+
+function renderHilos(){
+  const textoF = document.getElementById('filtroTexto').value.toLowerCase();
+  const nodoF = document.getElementById('filtroNodo').value;
+  const estadoF = document.getElementById('filtroEstado').value;
+
+  const filtered = state.hilos.filter(h=>{
+    if(nodoF && h.nodoId!==nodoF) return false;
+    if(estadoF && h.estado!==estadoF) return false;
+    if(textoF){
+      const hay = (h.cliente||'').toLowerCase().includes(textoF) || (h.destino||'').toLowerCase().includes(textoF);
+      if(!hay) return false;
+    }
+    return true;
+  });
+
+  const tb = document.getElementById('tbl-hilos');
+  document.getElementById('hilosEmpty').style.display = filtered.length? 'none':'block';
+
+  tb.innerHTML = filtered.map(h=>{
+    const nodo = state.nodos.find(n=>n.id===h.nodoId);
+    const odf = state.odfs.find(o=>o.id===h.odfId);
+    const colorObj = COLORS.find(c=>c.k===h.color)||COLORS[0];
+    return `<tr>
+      <td class="idcell">${h.id.slice(-6)}</td>
+      <td>${esc(nodo?nodo.nombre:'—')} / ${esc(odf?odf.nombre:'—')} p${esc(h.puerto||'')}</td>
+      <td><span class="swatch" style="background:${colorObj.h}"></span>${colorObj.n}${h.buffer?(' · buf.'+esc(h.buffer)):''}</td>
+      <td>${traceHtml(h)}</td>
+      <td>${esc(h.destino||'—')}</td>
+      <td>${esc(h.cliente||'—')}</td>
+      <td><span class="badge ${h.estado}">${ESTADOS[h.estado]}</span></td>
+      <td class="idcell">${esc(h.tx||'—')} / ${esc(h.rx||'—')}</td>
+      <td><div class="row-actions">
+        <button class="btn secondary small" data-edit="${h.id}">Editar</button>
+        <button class="btn danger small" data-del="${h.id}">Eliminar</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  tb.querySelectorAll('[data-edit]').forEach(b=>{
+    b.onclick=()=>loadHiloForEdit(b.dataset.edit);
+  });
+  tb.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=async()=>{
+      state.hilos = state.hilos.filter(h=>h.id!==b.dataset.del);
+      await save('hilos'); renderAll(); toast('Hilo eliminado');
+    };
+  });
+}
+
+function loadHiloForEdit(id){
+  const h = state.hilos.find(x=>x.id===id);
+  if(!h) return;
+  editingId = id;
+  document.getElementById('formHiloTitle').textContent = 'Editar hilo';
+  document.getElementById('f-nodo').value = h.nodoId; renderOdfSelect();
+  document.getElementById('f-odf').value = h.odfId;
+  document.getElementById('f-puerto').value = h.puerto||'';
+  document.getElementById('f-buffer').value = h.buffer||'';
+  selectedColor = h.color; renderColorPick();
+  routeBuild = [...(h.ruta||[])]; renderRouteList();
+  document.getElementById('f-destino').value = h.destino||'';
+  document.getElementById('f-cliente').value = h.cliente||'';
+  document.getElementById('f-estado').value = h.estado||'libre';
+  document.getElementById('f-tx').value = h.tx||'';
+  document.getElementById('f-rx').value = h.rx||'';
+  document.getElementById('f-fecha').value = h.fecha||'';
+  document.getElementById('f-notas').value = h.notas||'';
+  document.getElementById('cancelEditBtn').style.display='inline-block';
+  document.getElementById('view-hilos').scrollIntoView({behavior:'smooth'});
+}
+
+/* ---------- DASHBOARD ---------- */
+function renderDashboard(){
+  const total = state.hilos.length;
+  const cnt = k => state.hilos.filter(h=>h.estado===k).length;
+  document.getElementById('c-total').textContent = total;
+  document.getElementById('c-activo').textContent = cnt('activo');
+  document.getElementById('c-reservado').textContent = cnt('reservado');
+  document.getElementById('c-danado').textContent = cnt('danado');
+  document.getElementById('c-libre').textContent = cnt('libre');
+
+  const tb = document.getElementById('tbl-porNodo').querySelector('tbody');
+  tb.innerHTML = state.nodos.map(n=>{
+    const hs = state.hilos.filter(h=>h.nodoId===n.id);
+    return `<tr><td>${esc(n.nombre)}</td><td>${hs.length}</td>
+      <td>${hs.filter(h=>h.estado==='activo').length}</td>
+      <td>${hs.filter(h=>h.estado==='reservado').length}</td>
+      <td>${hs.filter(h=>h.estado==='danado').length}</td>
+      <td>${hs.filter(h=>h.estado==='libre').length}</td></tr>`;
+  }).join('') || '<tr><td colspan="6" style="color:var(--text-mute)">Agrega un nodo para ver el resumen</td></tr>';
+}
+
+/* ---------- HELPERS ---------- */
+function esc(s){ return (s+'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- EVENTS ---------- */
+document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('view-'+b.dataset.view).classList.add('active');
+  };
+});
+
+document.getElementById('f-nodo').addEventListener('change', renderOdfSelect);
+
+document.getElementById('addNodoBtn').onclick = async ()=>{
+  const nombre = document.getElementById('f-nodoNombre').value.trim();
+  const zona = document.getElementById('f-nodoZona').value.trim();
+  if(!nombre){ toast('Escribe un nombre de nodo'); return; }
+  state.nodos.push({id:uid('nodo'), nombre, zona});
+  await save('nodos');
+  document.getElementById('f-nodoNombre').value='';
+  document.getElementById('f-nodoZona').value='';
+  renderAll(); toast('Nodo agregado');
+};
+
+document.getElementById('addOdfBtn').onclick = async ()=>{
+  const nodoId = document.getElementById('f-odfNodo').value;
+  const nombre = document.getElementById('f-odfNombre').value.trim();
+  const puertos = parseInt(document.getElementById('f-odfPuertos').value)||0;
+  if(!nodoId){ toast('Crea un nodo primero'); return; }
+  if(!nombre){ toast('Escribe un nombre de ODF'); return; }
+  state.odfs.push({id:uid('odf'), nodoId, nombre, puertos});
+  await save('odfs');
+  document.getElementById('f-odfNombre').value='';
+  document.getElementById('f-odfPuertos').value='';
+  renderAll(); toast('ODF agregado');
+};
+
+document.getElementById('addCierreMainBtn').onclick = async ()=>{
+  const nombre = document.getElementById('f-cierreNombre').value.trim();
+  const ubicacion = document.getElementById('f-cierreUbic').value.trim();
+  const capacidad = document.getElementById('f-cierreCap').value.trim();
+  const tipo = document.getElementById('f-cierreTipo').value;
+  if(!nombre){ toast('Escribe un nombre de cierre'); return; }
+  state.cierres.push({id:uid('cierre'), nombre, ubicacion, capacidad, tipo});
+  await save('cierres');
+  document.getElementById('f-cierreNombre').value='';
+  document.getElementById('f-cierreUbic').value='';
+  document.getElementById('f-cierreCap').value='';
+  renderAll(); toast('Cierre agregado');
+};
+
+document.getElementById('addCierreBtn').onclick = ()=>{
+  const id = document.getElementById('f-cierreAdd').value;
+  if(!id){ toast('Crea un cierre primero'); return; }
+  routeBuild.push(id);
+  renderRouteList();
+};
+
+document.getElementById('cancelEditBtn').onclick = ()=>resetHiloForm();
+
+function resetHiloForm(){
+  editingId = null;
+  document.getElementById('formHiloTitle').textContent = 'Registrar hilo';
+  document.getElementById('f-puerto').value='';
+  document.getElementById('f-buffer').value='';
+  document.getElementById('f-destino').value='';
+  document.getElementById('f-cliente').value='';
+  document.getElementById('f-estado').value='libre';
+  document.getElementById('f-tx').value='';
+  document.getElementById('f-rx').value='';
+  document.getElementById('f-fecha').value='';
+  document.getElementById('f-notas').value='';
+  selectedColor = COLORS[0].k; renderColorPick();
+  routeBuild = []; renderRouteList();
+  document.getElementById('cancelEditBtn').style.display='none';
+}
+
+document.getElementById('saveHiloBtn').onclick = async ()=>{
+  const nodoId = document.getElementById('f-nodo').value;
+  const odfId = document.getElementById('f-odf').value;
+  if(!nodoId || !odfId){ toast('Selecciona nodo y ODF'); return; }
+  const hilo = {
+    id: editingId || uid('hilo'),
+    nodoId, odfId,
+    puerto: document.getElementById('f-puerto').value.trim(),
+    buffer: document.getElementById('f-buffer').value.trim(),
+    color: selectedColor,
+    ruta: [...routeBuild],
+    destino: document.getElementById('f-destino').value.trim(),
+    cliente: document.getElementById('f-cliente').value.trim(),
+    estado: document.getElementById('f-estado').value,
+    tx: document.getElementById('f-tx').value.trim(),
+    rx: document.getElementById('f-rx').value.trim(),
+    fecha: document.getElementById('f-fecha').value,
+    notas: document.getElementById('f-notas').value.trim()
+  };
+  if(editingId){
+    const idx = state.hilos.findIndex(h=>h.id===editingId);
+    state.hilos[idx] = hilo;
+  } else {
+    state.hilos.push(hilo);
+  }
+  await save('hilos');
+  resetHiloForm();
+  renderAll();
+  toast(editingId? 'Hilo actualizado':'Hilo registrado');
+};
+
+['filtroTexto','filtroNodo','filtroEstado'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderHilos);
+  document.getElementById(id).addEventListener('change', renderHilos);
+});
+
+document.getElementById('exportBtn').onclick = ()=>{
+  const rows = [['ID','Nodo','ODF','Puerto','Buffer','Color','Ruta (cierres)','Destino','Cliente','Estado','Tx dBm','Rx dBm','Fecha','Notas']];
+  state.hilos.forEach(h=>{
+    const nodo = state.nodos.find(n=>n.id===h.nodoId);
+    const odf = state.odfs.find(o=>o.id===h.odfId);
+    const ruta = (h.ruta||[]).map(cid=>{ const c=state.cierres.find(x=>x.id===cid); return c?c.nombre:'?'; }).join(' > ');
+    rows.push([h.id,nodo?nodo.nombre:'',odf?odf.nombre:'',h.puerto,h.buffer,h.color,ruta,h.destino,h.cliente,ESTADOS[h.estado],h.tx,h.rx,h.fecha,h.notas]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${(v+'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'inventario_hilos.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exportado');
+};
+
+/* ---------- IMPORT CSV ---------- */
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  text = text.replace(/^\uFEFF/, '');
+  for(let i=0; i<text.length; i++){
+    const ch = text[i], next = text[i+1];
+    if(inQuotes){
+      if(ch === '"' && next === '"'){ field += '"'; i++; }
+      else if(ch === '"'){ inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if(ch === '"'){ inQuotes = true; }
+      else if(ch === ','){ row.push(field); field=''; }
+      else if(ch === '\r'){ /* skip */ }
+      else if(ch === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else { field += ch; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.length>1 || (r[0] && r[0].trim()!==''));
+}
+
+function stripAccents(s){
+  return (s+'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+
+function findOrCreateNodo(nombre){
+  nombre = (nombre||'').trim();
+  if(!nombre) return null;
+  let n = state.nodos.find(x=>x.nombre.trim().toLowerCase()===nombre.toLowerCase());
+  if(!n){ n = {id:uid('nodo'), nombre, zona:''}; state.nodos.push(n); }
+  return n;
+}
+function findOrCreateOdf(nombre, nodoId){
+  nombre = (nombre||'').trim();
+  if(!nombre || !nodoId) return null;
+  let o = state.odfs.find(x=>x.nodoId===nodoId && x.nombre.trim().toLowerCase()===nombre.toLowerCase());
+  if(!o){ o = {id:uid('odf'), nodoId, nombre, puertos:0}; state.odfs.push(o); }
+  return o;
+}
+function findOrCreateCierre(nombre){
+  nombre = (nombre||'').trim();
+  if(!nombre) return null;
+  let c = state.cierres.find(x=>x.nombre.trim().toLowerCase()===nombre.toLowerCase());
+  if(!c){ c = {id:uid('cierre'), nombre, ubicacion:'', capacidad:'', tipo:'Distribución'}; state.cierres.push(c); }
+  return c;
+}
+
+const COLOR_NAME_TO_KEY = {};
+COLORS.forEach(c=>{ COLOR_NAME_TO_KEY[stripAccents(c.n)] = c.k; });
+const ESTADO_NAME_TO_KEY = {};
+Object.keys(ESTADOS).forEach(k=>{ ESTADO_NAME_TO_KEY[stripAccents(ESTADOS[k])] = k; });
+
+async function importCSVText(text){
+  const rows = parseCSV(text);
+  if(!rows.length){ toast('El archivo está vacío'); return; }
+  let header = rows[0].map(h=>stripAccents(h));
+  let dataRows = rows.slice(1);
+  // fallback: if header doesn't look like our export, assume no header
+  if(!header.some(h=>h.includes('nodo'))){ dataRows = rows; }
+
+  let nuevos = 0, actualizados = 0;
+  dataRows.forEach(r=>{
+    if(!r || r.every(v=>!v || !v.trim())) return;
+    const [id, nodoNom, odfNom, puerto, buffer, colorNom, rutaStr, destino, cliente, estadoNom, tx, rx, fecha, notas] = r;
+    const nodo = findOrCreateNodo(nodoNom);
+    if(!nodo) return;
+    const odf = findOrCreateOdf(odfNom, nodo.id);
+    const ruta = (rutaStr||'').split('>').map(s=>s.trim()).filter(Boolean).map(nom=>findOrCreateCierre(nom).id);
+    const colorKey = COLOR_NAME_TO_KEY[stripAccents(colorNom)] || 'azul';
+    const estadoKey = ESTADO_NAME_TO_KEY[stripAccents(estadoNom)] || 'libre';
+
+    const hilo = {
+      id: (id && id.trim()) || uid('hilo'),
+      nodoId: nodo.id,
+      odfId: odf ? odf.id : '',
+      puerto: (puerto||'').trim(),
+      buffer: (buffer||'').trim(),
+      color: colorKey,
+      ruta,
+      destino: (destino||'').trim(),
+      cliente: (cliente||'').trim(),
+      estado: estadoKey,
+      tx: (tx||'').trim(),
+      rx: (rx||'').trim(),
+      fecha: (fecha||'').trim(),
+      notas: (notas||'').trim()
+    };
+    const idx = state.hilos.findIndex(h=>h.id===hilo.id);
+    if(idx>=0){ state.hilos[idx] = hilo; actualizados++; }
+    else { state.hilos.push(hilo); nuevos++; }
+  });
+
+  await save('nodos'); await save('odfs'); await save('cierres'); await save('hilos');
+  renderAll();
+  toast(`Importado: ${nuevos} hilo(s) nuevo(s), ${actualizados} actualizado(s)`);
+}
+
+document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=> importCSVText(reader.result);
+  reader.onerror = ()=> toast('No se pudo leer el archivo');
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+});
+
+loadAll();
+</script>
+</body>
+</html>
